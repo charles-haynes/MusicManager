@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+# -*- coding: utf-8 -*-
 
 import grp
 import os
@@ -9,12 +10,10 @@ import sys
 from datetime import datetime
 from stat import *
 
-files = pymongo.Connection().test.files
-files.drop()
-
 TEXT_ENCODING = 'utf8'
 
 count  = 0
+log_every_count_files = 1000
 
 def walktree(top, callback, top_id):
     '''recursively descend the directory tree rooted at top,
@@ -22,17 +21,18 @@ def walktree(top, callback, top_id):
 
     global count
 
-    try:
-        for f in os.listdir(top):
-            pathname = os.path.join(top, f)
+    for f in os.listdir(top):
+        pathname = os.path.join(top, f)
+        try:
             st = os.lstat(pathname)
-            _id = callback(f, st, top_id)
-            count += 1
-            if (count % 1000) == 0: print pathname
-            if S_ISDIR(st.st_mode):
-                walktree(pathname, callback, _id)
-    except OSError:
-        print 'Error, skipping %s' % top
+        except OSError as exc:
+            print '"%s": %s' % (pathname, exc)
+            continue
+        _id = callback(f, st, top_id)
+        count += 1
+        if (count % log_every_count_files) == 0: print pathname
+        if S_ISDIR(st.st_mode):
+            walktree(pathname, callback, _id)
 
 
 def visitfile(file, stat, top_id):
@@ -74,6 +74,9 @@ def visitfile(file, stat, top_id):
     return _id
 
 if __name__ == '__main__':
+    files = pymongo.Connection().test.files
+    files.drop()
+
     fpath = sys.argv[1] if (len(sys.argv) > 1) else os.getcwd()
     _id = visitfile(fpath, os.stat(fpath), None)
     walktree(fpath, visitfile, _id)
