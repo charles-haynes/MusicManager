@@ -99,24 +99,36 @@ def forEachDup(dup_digest):
     print
 
 if __name__ == '__main__': 
-  m = Code("function() { emit(this.digest, 1) }")
+  m = Code("""function() {
+    if (this.mp3 && this.mp3.tags)
+        for (i=0;i<this.mp3.tags.length; i+=1)
+            emit(this.mp3.tags[i][0],1);
+    }""")
 
   r = Code("function(k, v) { return Array.sum(v) }")
 
   db = pymongo.Connection().test
-  db.mp3.map_reduce(m, r, "mp3_dups", sort={"digest": 1})
-
   files = db.files
 
-  # for each mp3 file
-  for f in db.mp3.find({}):
-      forEachMp3(f)
+  files.map_reduce(m, r, "mp3_tags")
 
-  # for each duplicate file
-  for f in db.mp3_dups.find({value: {$gt: 1}}):
-      forEachDup(f)
+  m = Code("""function() {
+    if (this.mp3 && this.mp3.digest)
+        emit(this.mp3.digest,1);
+    }""")
+
+  r = Code("function(k, v) { return Array.sum(v) }")
+
+  # files.map_reduce(m, r, "mp3_dups", sort={"digest": 1})
+  files.map_reduce(m, r, "mp3_dups")
 
   # for each mp3 file
   # if doesn't have musicbrainz tags
   #   look up in musicbrainz
   #   tag with musicbrainz tags
+
+  # for each duplicate
+  # if it is an mp3 file
+  #   if it has tags
+  #     merge tags
+  #   delete dup
