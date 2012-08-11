@@ -31,8 +31,8 @@ class TestCachedFile(unittest.TestCase):
         self.cached_file_info['inode'] += 1
         self.assertTrue(self.cached_file.hasChanged(self.cached_file_info))
 
-    def test_hasChanged_mp3(self):
-        self.assertTrue(self.cached_file.hasChanged(self.file_info))
+    def test_hasChanged_no_change_but_no_mp3_data(self):
+        self.assertFalse(self.cached_file.hasChanged(self.file_info))
 
     def test_isRegularFile_true_for_regular_file(self):
         self.assertTrue(self.cached_file.isRegularFile())

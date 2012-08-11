@@ -14,8 +14,7 @@ class CachedFile():
         return (
             cached['mtime'] < self.mtime
             or cached['size'] != self.size
-            or cached['inode'] != self.inode
-            or 'mp3' not in cached)
+            or cached['inode'] != self.inode)
 
     def isRegularFile(self):
         return S_ISREG(self.mode)

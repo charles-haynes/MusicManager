@@ -109,5 +109,6 @@ if __name__ == '__main__':
     file_db.on_changed = on_changed
 
     fpath = sys.argv[1] if (len(sys.argv) > 1) else os.getcwd()
-    _id = file_db.visit_file(os.path.abspath(fpath), os.lstat(fpath), None, fpath)
+    fpath=os.path.abspath(fpath)
+    _id = file_db.id(fpath, fpath, None, os.lstat(fpath))
     file_db.add_tree(fpath, _id)

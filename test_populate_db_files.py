@@ -98,13 +98,13 @@ class TestPopulateDbFiles(unittest.TestCase):
         self.assertTrue(self.mongo_db.save.called)
         self.assertTrue(self.file_db.on_changed.called)
 
-    def test_id_no_mp3_info(self):
+    def test_id_no_change_but_no_mp3_info(self):
         del self.find_result['mp3']
         self.mongo_db.find_one.return_value = self.find_result
         self.file_db.id("test_file_name", "test_file_name", 8, self.stat)
 
-        self.assertTrue(self.mongo_db.save.called)
-        self.assertTrue(self.file_db.on_changed.called)
+        self.assertFalse(self.mongo_db.save.called)
+        self.assertFalse(self.file_db.on_changed.called)
 
 if __name__ == "__main__":
     unittest.main()
