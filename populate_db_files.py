@@ -30,10 +30,14 @@ class FileCache():
         self.log_every_count_files = log_every_count_files
         self.on_changed = on_changed
 
-    def id(self, name, parent, mode, inode, size, mtime, pathname):
+    def id(self, pathname, name, parent, stat):
+
+        size=stat.st_size
+
         cached_info = self.file_db.find_one({'name': name,'parent': parent})
         
-        file = cached_file.CachedFile(name, parent, mode, inode, size, mtime)
+        file = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
+                                      datetime.fromtimestamp(stat.st_mtime))
 
         # hasChanged should be internal to file
         # file should provide a method that returns file_info
@@ -73,7 +77,7 @@ class FileCache():
             except OSError as exc:
                 warn('"%s": %s' % (pathname, exc))
                 continue
-            _id = self.visit_file(child_name, st, parent_id, pathname)
+            _id = self.id(pathname, child_name, parent_id, st)
             self.count += 1
             if (self.log_every_count_files > 0) and (self.count % self.log_every_count_files) == 0:
                 logging.info(pathname)
@@ -95,10 +99,6 @@ class FileCache():
     @staticmethod
     def pymongo_sanitize_dict(dict):
         return [(FileCache.bson_sanitize_string(k), FileCache.bson_sanitize_string(str(v))) for k,v in dict.iteritems()]
-
-    def visit_file(self, file_name, stat, parent, pathname):
-        return self.id(file_name, parent, stat.st_mode, stat.st_ino, stat.st_size, datetime.fromtimestamp(stat.st_mtime), pathname)
-
 
 def on_changed(file_name, size):
     return populate_db_mp3.get_mp3_info(file_name, size)
