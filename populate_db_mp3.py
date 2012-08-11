@@ -41,7 +41,11 @@ def hash_mp3(f, size):
 def file_to_MP3_tags(file_name):
     try:
         return mutagen.File(file_name)
-    except (mutagen.mp4.MP4StreamInfoError, mutagen.mp3.HeaderNotFoundError) as exc:
+    except (
+        mutagen.mp4.MP4StreamInfoError,
+        mutagen.mp3.HeaderNotFoundError,
+        mutagen.musepack.MusepackHeaderError
+        ) as exc:
         warn("%s %s"%(file_name, exc))
 
     return None
