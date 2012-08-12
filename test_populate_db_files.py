@@ -14,6 +14,7 @@ import unittest
 
 from mock import call,Mock,patch
 
+
 class TestPopulateDbFiles(unittest.TestCase):
 
     def setUp(self):
@@ -28,6 +29,9 @@ class TestPopulateDbFiles(unittest.TestCase):
 
         self.file_cache = populate_db_files.FileCache(self.mongo_db)
         self.stat = Mock(st_mode=S_IFREG, st_mtime=2.0, st_size=4, st_ino=5)
+        patcher = patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
+        self.mock_get_mp3_info = patcher.start()
+        self.addCleanup(patcher.stop)
 
     @patch('os.lstat')
     @patch('os.path.join', Mock(side_effect = (lambda x, y: x+'/'+y)))
@@ -48,72 +52,64 @@ class TestPopulateDbFiles(unittest.TestCase):
 
         self.assertEqual(self.file_cache.id.call_args_list,expected)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_calls_get_mp3_info_for_uncached_regular_file(self):
         self.mongo_db.find_one.return_value = None
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
         self.mongo_db.find_one.return_value = self.find_result
 
-        self.assertTrue(populate_db_mp3.get_mp3_info.called)
+        self.assertTrue(self.mock_get_mp3_info.called)
         self.assertTrue(self.mongo_db.save.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_does_not_call_on_changed_info_for_directories(self):
         self.stat.st_mode = S_IFDIR
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
-        self.assertFalse(populate_db_mp3.get_mp3_info.called)
+        self.assertFalse(self.mock_get_mp3_info.called)
         self.assertFalse(self.mongo_db.save.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_no_changes(self):
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
-        self.assertFalse(populate_db_mp3.get_mp3_info.called)
+        self.assertFalse(self.mock_get_mp3_info.called)
         mock_calls = [call.find_one({'name': 'test_file_name', 'parent': 8})]
         self.assertEqual(self.mongo_db.mock_calls,mock_calls)
         self.assertFalse(self.mongo_db.save.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_new(self):
         self.mongo_db.find_one.return_value = None
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
         self.assertTrue(self.mongo_db.save.called)
-        self.assertTrue(populate_db_mp3.get_mp3_info.called)
+        self.assertTrue(self.mock_get_mp3_info.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_mtime_changed(self):
         self.stat.st_mtime += 1.0
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
         self.assertTrue(self.mongo_db.save.called)
-        self.assertTrue(populate_db_mp3.get_mp3_info.called)
+        self.assertTrue(self.mock_get_mp3_info.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_size_changed(self):
         self.stat.st_size += 1
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
         self.assertTrue(self.mongo_db.save.called)
-        self.assertTrue(populate_db_mp3.get_mp3_info.called)
+        self.assertTrue(self.mock_get_mp3_info.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_ino_changed(self):
         self.stat.st_ino += 1
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
         self.assertTrue(self.mongo_db.save.called)
-        self.assertTrue(populate_db_mp3.get_mp3_info.called)
+        self.assertTrue(self.mock_get_mp3_info.called)
 
-    @patch('populate_db_mp3.get_mp3_info', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
     def test_id_no_change_but_no_mp3_info(self):
         del self.find_result['mp3']
         self.mongo_db.find_one.return_value = self.find_result
         self.file_cache.id("test_file_name", "test_file_name", 8, self.stat)
 
         self.assertFalse(self.mongo_db.save.called)
-        self.assertFalse(populate_db_mp3.get_mp3_info.called)
+        self.assertFalse(self.mock_get_mp3_info.called)
 
 if __name__ == "__main__":
     unittest.main()
