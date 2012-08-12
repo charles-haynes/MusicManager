@@ -6,14 +6,10 @@ import pdb
 import bson
 import cached_file
 from datetime import datetime
-import grp
 import logging
-import logging.config
 import os
 import os.path
-import pickle
 import populate_db_mp3
-import pwd
 import pymongo
 import pymongo.binary
 from stat import S_ISDIR
@@ -24,11 +20,10 @@ TEXT_ENCODING = 'utf8'
 
 class FileCache():
 
-    def __init__(self, file_db, on_changed=None, log_every_count_files = 1000):
+    def __init__(self, file_db, log_every_count_files = 1000):
         self.file_db = file_db
         self.count = 0
         self.log_every_count_files = log_every_count_files
-        self.on_changed = on_changed
 
     def id(self, pathname, name, parent, stat):
 
@@ -47,14 +42,11 @@ class FileCache():
         if cached_info and not file.hasChanged(cached_info):
             return cached_info['_id']
 
-        # on_changed should be a notifier, taking a file? be internal
-        # to File? on_changed is badly named, it actually (re-)computes the
-        # value to be cached.
         if file.isRegularFile():
-            mp3_info = self.on_changed(pathname, size)
-            # the rest of this logic should be cached file updating
+            mp3_info = populate_db_mp3.get_mp3_info(pathname, size)
+            # the rest of this logic should be cachedFile updating
             # the cache
-            try: mp3_info['tags'] = FileCache.pymongo_sanitize_dict(mp3_info['tags'])
+            try: FileCache.pymongo_sanitize_dict(mp3_info['tags'])
             except KeyError: pass
             file.mp3 = mp3_info
 
@@ -100,13 +92,9 @@ class FileCache():
     def pymongo_sanitize_dict(dict):
         return [(FileCache.bson_sanitize_string(k), FileCache.bson_sanitize_string(str(v))) for k,v in dict.iteritems()]
 
-def on_changed(file_name, size):
-    return populate_db_mp3.get_mp3_info(file_name, size)
-
 if __name__ == '__main__':
     logging.captureWarnings(True)
     file_db = FileCache(pymongo.Connection().test.files, 1)
-    file_db.on_changed = on_changed
 
     fpath = sys.argv[1] if (len(sys.argv) > 1) else os.getcwd()
     fpath=os.path.abspath(fpath)
