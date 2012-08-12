@@ -6,10 +6,10 @@ import pdb
 import bson
 import cached_file
 from datetime import datetime
+import FileWithMetadata
 import logging
 import os
 import os.path
-import populate_db_mp3
 import pymongo
 import pymongo.binary
 from stat import S_ISDIR
@@ -25,8 +25,8 @@ class FileCache():
         self.count = 0
         self.log_every_count_files = log_every_count_files
 
-    def id(self, pathname, name, parent, stat):
-
+    def id(self, pathname, name, parent):
+        stat = os.lstat(pathname)
         size=stat.st_size
 
         cached_info = self.file_db.find_one({'name': name,'parent': parent})
@@ -43,12 +43,14 @@ class FileCache():
             return cached_info['_id']
 
         if file.isRegularFile():
-            mp3_info = populate_db_mp3.get_mp3_info(pathname, size)
+            f = FileWithMetadata.FileWithMetadata(pathname, size)
+            metadata = f.metadata()
             # the rest of this logic should be cachedFile updating
             # the cache
-            try: FileCache.pymongo_sanitize_dict(mp3_info['tags'])
+            try: file.digest = metadata['digest']
             except KeyError: pass
-            file.mp3 = mp3_info
+            try: file.tags=FileCache.pymongo_sanitize_dict(metadata['tags'])
+            except KeyError: pass
 
         try:
             bson_doc = bson.BSON.encode(file.dict(),check_keys=True)
@@ -65,17 +67,16 @@ class FileCache():
         for child_name in os.listdir(parent_name):
             pathname = os.path.join(parent_name, child_name)
             try:
-                st = os.lstat(pathname)
+                _id = self.id(pathname, child_name, parent_id)
             except OSError as exc:
                 warn('"%s": %s' % (pathname, exc))
                 continue
-            _id = self.id(pathname, child_name, parent_id, st)
             self.count += 1
             if (self.log_every_count_files > 0) and (self.count % self.log_every_count_files) == 0:
                 logging.info(pathname)
 
-            if S_ISDIR(st.st_mode):
-                self.add_tree(pathname, _id)
+            try: self.add_tree(pathname, _id)
+            except OSError: pass
 
     @staticmethod
     def bson_sanitize_string(s):
@@ -84,7 +85,6 @@ class FileCache():
         try:
             s.decode('utf-8')
         except UnicodeDecodeError:
-            print "UnicodeDecodeError Value: %s" % (s,)
             s=pymongo.binary.Binary(s)
         return s
         
@@ -98,5 +98,5 @@ if __name__ == '__main__':
 
     fpath = sys.argv[1] if (len(sys.argv) > 1) else os.getcwd()
     fpath=os.path.abspath(fpath)
-    _id = file_db.id(fpath, fpath, None, os.lstat(fpath))
+    _id = file_db.id(fpath, fpath, None)
     file_db.add_tree(fpath, _id)
