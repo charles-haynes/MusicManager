@@ -1,13 +1,13 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import bson
 import cached_file
 from datetime import datetime
 import FileWithMetadata
 import logging
 import os
 import os.path
+import cPickle as pickle
 import pymongo
 import pymongo.binary
 from stat import S_ISDIR
@@ -29,7 +29,7 @@ class FileCache():
 
         cached_info = self.file_db.find_one({'name': name,'parent': parent})
         
-        f = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
+        cf = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
                                       datetime.fromtimestamp(stat.st_mtime))
 
         # hasChanged should be internal to file
@@ -37,26 +37,26 @@ class FileCache():
         # it should return cached if not hasChanged (and cache exists)
         # it should take a filename and a cached value and say if the
         # cached value is stale
-        if cached_info and not f.hasChanged(cached_info):
+        if cached_info and not cf.hasChanged(cached_info):
             return cached_info['_id']
 
-        if f.isRegularFile():
-            f = FileWithMetadata.FileWithMetadata(pathname, size)
-            metadata = f.metadata()
+        if cf.isRegularFile():
+            mf = FileWithMetadata.FileWithMetadata(pathname, size)
+            metadata = mf.metadata()
             # the rest of this logic should be cachedFile updating
             # the cache
-            try: f.digest = metadata['digest']
-            except KeyError: pass
-            try: f.tags=FileCache.pymongo_sanitize_dict(metadata['tags'])
-            except KeyError: pass
-
-        try:
-            bson.BSON.encode(f.__dict__,check_keys=True)
-        except bson.errors.InvalidStringData:
-            print repr(f.__dict__)
+            try:
+                cf.digest = metadata['digest']
+            except KeyError:
+                pass
+            try:
+                cf.tags=pymongo.binary.Binary(
+                    pickle.dumps(metadata['tags'], pickle.HIGHEST_PROTOCOL))
+            except KeyError:
+                pass
 
         print "saved %s" % (pathname,)
-        return self.file_db.save(f.__dict__)
+        return self.file_db.save(cf.__dict__)
 
     def add_tree(self, parent_name, parent_id):
         '''recursively descend the directory tree rooted at top,
@@ -75,26 +75,3 @@ class FileCache():
 
             try: self.add_tree(pathname, _id)
             except OSError: pass
-
-    @staticmethod
-    def bson_sanitize_string(s):
-        if isinstance(s, unicode):
-            return s.encode("utf-8")
-        try:
-            s.decode('utf-8')
-        except UnicodeDecodeError:
-            s=pymongo.binary.Binary(s)
-        return s
-        
-    @staticmethod
-    def pymongo_sanitize_dict(dict):
-        return [(FileCache.bson_sanitize_string(k), FileCache.bson_sanitize_string(str(v))) for k,v in dict.iteritems()]
-
-if __name__ == '__main__':
-    logging.captureWarnings(True)
-    file_db = FileCache(pymongo.Connection().test.files, 1)
-
-    fpath = sys.argv[1] if (len(sys.argv) > 1) else os.getcwd()
-    fpath=os.path.abspath(fpath)
-    _id = file_db.id(fpath, fpath, None)
-    file_db.add_tree(fpath, _id)

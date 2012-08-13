@@ -8,6 +8,7 @@ import mutagen.mp3
 import mutagen.mp4
 import mutagen.musepack
 from mutagen.id3 import BitPaddedInt
+import os.path
 import struct
 from warnings import warn
 
@@ -15,9 +16,9 @@ TEXT_ENCODING = 'utf8'
 
 class FileWithMetadata():
 
-    def __init__(self, name, size):
+    def __init__(self, name, size=None):
         self.name = name
-        self.size = size
+        self.size = size if size is not None else os.path.getsize(name)
         self._digest = None
         self._tags = None
 
@@ -54,9 +55,10 @@ class FileWithMetadata():
             return self._digest
 
     def metadata(self):
-        r = {'digest': self.digest()}
-        if self.tags(): r['tags'] = self._tags
-        return r
+        ret_val = {'digest': self.digest()}
+        if self.tags() is not None:
+            ret_val['tags'] = self.tags()
+        return ret_val
 
     def tags(self):
         if self._tags: return self._tags
