@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import merge_metadata
 import os
 import os.path
 import pymongo 
@@ -16,10 +17,9 @@ if __name__ == '__main__':
 
   digests = db.mp3_dups.find({'value': {'$gt': 1}},sort=[('value',-1)])
   for digest in digests:
-    dups = db.files.find({'digest': digest['_id'], 'tags': {'$exists': True}})
-    # if dups.count() == 0:
-    #   continue
+    dups = db.files.find({'digest': digest['_id']})
     print "*** %s: %d" % (digest['_id'], digest['value'])
-    for dup in dups:
-      print full_path(db.files,dup).encode('utf-8')
+    paths = [full_path(db.files, dup).encode('utf-8') for dup in dups]
+    print '\n'.join(paths)
+    merge_metadata.merge_file_metadata(paths)
     print
