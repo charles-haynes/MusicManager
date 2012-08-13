@@ -61,9 +61,10 @@ class FileWithMetadata():
             self._tags = mutagen.File(self.name)
             return self._tags
         except (
-            mutagen.mp4.MP4StreamInfoError,
-            mutagen.mp3.HeaderNotFoundError,
-            mutagen.musepack.MusepackHeaderError
+            mutagen.mp4.error,
+            mutagen.mp3.error,
+            mutagen.musepack.error,
+            mutagen.flac.error
             ) as exc:
             warn("%s %s"%(self.name, exc))
         return None

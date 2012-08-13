@@ -3,6 +3,10 @@
 
 import logging
 import mutagen
+import mutagen.flac
+import mutagen.mp3
+import mutagen.mp4
+import mutagen.musepack
 import os
 import FileWithMetadata
 import struct
@@ -55,13 +59,12 @@ class TestPopulateDbMp3(unittest.TestCase):
         mp3_tags = f.tags()
         self.assertEqual(mp3_tags,None)
 
-    @patch('mutagen.File')
-    def test_mp3_file_to_mp3_tags(self, mock_mutagen):
-        mock_mutagen.return_value={'tag': 'value'}
-        f = FileWithMetadata.FileWithMetadata('test_file',0)
-        mp3_tags = f.tags()
-        self.assertEqual(mp3_tags,{'tag': 'value'})
-        self.assertTrue(mock_mutagen.called)
+    def test_mp3_file_to_mp3_tags(self):
+        with patch('mutagen.File', Mock(return_value={'tag': 'value'})) as mock_mutagen:
+            f = FileWithMetadata.FileWithMetadata('test_file',0)
+            mp3_tags = f.tags()
+            self.assertEqual(mp3_tags,{'tag': 'value'})
+            self.assertTrue(mock_mutagen.called)
 
     @patch('os.stat', Mock(return_value = Mock(st_size = len(id3v1v2))))
     @patch('__builtin__.open',MagicMock(return_value=MagicMock(read=Mock(return_value=id3v1v2))))
@@ -70,7 +73,7 @@ class TestPopulateDbMp3(unittest.TestCase):
             warnings.simplefilter("always")
             f = FileWithMetadata.FileWithMetadata('test_file',len(id3v1v2))
             mp3_tags = f.tags()
-        self.assertEqual(mp3_tags , None)
+        self.assertIsNone(mp3_tags)
         self.assertEqual(len(w),1)
         self.assertTrue(issubclass(w[0].category, UserWarning))
         self.assertEqual(str(w[0].message), "test_file can't sync to an MPEG frame")
@@ -84,17 +87,41 @@ class TestPopulateDbMp3(unittest.TestCase):
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
     @patch('__builtin__.open', mockOpen([id3v2_header, '', '1234']))
-    def test_get_mp3_info_id3v2(self):
+    def test_metadata_id3v2(self):
         f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+''+'1234'))
         info = f.metadata()
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
     @patch('__builtin__.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234']))
-    def test_get_mp3_info_id3v1v2(self):
+    def test_metadata_id3v1v2(self):
         f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
         info = f.metadata()
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
+
+    def metadata_error(self, error):
+        with patch('__builtin__.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234'])):
+            with patch('mutagen.File', Mock(side_effect=error)):
+                with warnings.catch_warnings(record=True) as w:
+                    warnings.simplefilter("always")
+                    f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
+                    info = f.metadata()
+                self.assertEqual(info, {'digest': hash_1234})
+                self.assertEqual(len(w),1)
+                self.assertTrue(issubclass(w[0].category, UserWarning))
+                self.assertEqual(str(w[0].message), "test_file test")
+
+    def test_metadata_mp3_error(self):
+        self.metadata_error(mutagen.mp3.HeaderNotFoundError('test'))
+
+    def test_metadata_mp4_error(self):
+        self.metadata_error(mutagen.mp4.MP4StreamInfoError('test'))
+
+    def test_metadata_musepack_error(self):
+        self.metadata_error(mutagen.musepack.MusepackHeaderError('test'))
+
+    def test_metadata_flac_error(self):
+        self.metadata_error(mutagen.flac.FLACNoHeaderError('test'))
 
 if __name__ == "__main__":
     unittest.main()

@@ -4,10 +4,10 @@
 import pdb
 
 from datetime import datetime
+import filecache
 import FileWithMetadata
 import os
 import pickle
-import populate_db_files
 import pymongo
 from stat import *
 import unittest
@@ -15,7 +15,7 @@ import unittest
 from mock import call,Mock,patch
 
 
-class TestPopulateDbFiles(unittest.TestCase):
+class TestFileCache(unittest.TestCase):
 
     def setUp(self):
         self.find_result = {
@@ -27,7 +27,7 @@ class TestPopulateDbFiles(unittest.TestCase):
         self.mongo_db = Mock()
         self.mongo_db.find_one.return_value = self.find_result
 
-        self.file_cache = populate_db_files.FileCache(self.mongo_db)
+        self.file_cache = filecache.FileCache(self.mongo_db)
 
         patcher1 = patch('FileWithMetadata.FileWithMetadata.metadata', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
         self.mock_metadata = patcher1.start()
