@@ -1,15 +1,12 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import logging
 import mutagen
 import mutagen.flac
 import mutagen.mp3
 import mutagen.mp4
 import mutagen.musepack
-import os
 import FileWithMetadata
-import struct
 import unittest
 from mock import call,Mock,MagicMock,patch
 import warnings
@@ -27,28 +24,28 @@ class TestPopulateDbMp3(unittest.TestCase):
 
     def test_digest_not_mp3(self):
         read_values = ['','','']
-        with patch('__builtin__.open', mockOpen(read_values)) as mock_open:
+        with patch('__builtin__.open', mockOpen(read_values)):
             f = FileWithMetadata.FileWithMetadata('test_file',sum([len(x) for x in read_values]))
             digest = f.digest()
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1(self):
         read_values=['',id3v1_trailer[:3],'']
-        with patch('__builtin__.open', mockOpen(read_values)) as mock_open:
+        with patch('__builtin__.open', mockOpen(read_values)):
             f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest()
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v2(self):
         read_values=[id3v2_header, '','']
-        with patch('__builtin__.open', mockOpen(read_values)) as mock_open:
+        with patch('__builtin__.open', mockOpen(read_values)):
             f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest()
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1v2(self):
         read_values=[id3v2_header, id3v1_trailer[:3], '']
-        with patch('__builtin__.open', mockOpen(read_values)) as mock_open:
+        with patch('__builtin__.open', mockOpen(read_values)):
             f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest()
         self.assertEqual(digest,hash_empty)

@@ -3,8 +3,11 @@
 
 from hashlib import sha256
 import mutagen
+import mutagen.flac
+import mutagen.mp3
+import mutagen.mp4
+import mutagen.musepack
 from mutagen.id3 import BitPaddedInt
-import os.path
 import struct
 from warnings import warn
 

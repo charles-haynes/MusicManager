@@ -51,5 +51,5 @@ class TestCachedFile(unittest.TestCase):
         self.assertTrue(self.cached_file.isDirectory())
 
     def test_dict(self):
-        self.assertEqual(self.file_info, self.cached_file.dict())
+        self.assertEqual(self.file_info, self.cached_file.__dict__)
 

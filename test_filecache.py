@@ -1,14 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pdb
-
 from datetime import datetime
 import filecache
-import FileWithMetadata
-import os
-import pickle
-import pymongo
 from stat import *
 import unittest
 

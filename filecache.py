@@ -1,8 +1,6 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pdb
-
 import bson
 import cached_file
 from datetime import datetime
@@ -31,7 +29,7 @@ class FileCache():
 
         cached_info = self.file_db.find_one({'name': name,'parent': parent})
         
-        file = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
+        f = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
                                       datetime.fromtimestamp(stat.st_mtime))
 
         # hasChanged should be internal to file
@@ -39,26 +37,26 @@ class FileCache():
         # it should return cached if not hasChanged (and cache exists)
         # it should take a filename and a cached value and say if the
         # cached value is stale
-        if cached_info and not file.hasChanged(cached_info):
+        if cached_info and not f.hasChanged(cached_info):
             return cached_info['_id']
 
-        if file.isRegularFile():
+        if f.isRegularFile():
             f = FileWithMetadata.FileWithMetadata(pathname, size)
             metadata = f.metadata()
             # the rest of this logic should be cachedFile updating
             # the cache
-            try: file.digest = metadata['digest']
+            try: f.digest = metadata['digest']
             except KeyError: pass
-            try: file.tags=FileCache.pymongo_sanitize_dict(metadata['tags'])
+            try: f.tags=FileCache.pymongo_sanitize_dict(metadata['tags'])
             except KeyError: pass
 
         try:
-            bson_doc = bson.BSON.encode(file.dict(),check_keys=True)
+            bson.BSON.encode(f.__dict__,check_keys=True)
         except bson.errors.InvalidStringData:
-            print repr(file.dict())
+            print repr(f.__dict__)
 
         print "saved %s" % (pathname,)
-        return self.file_db.save(file.dict())
+        return self.file_db.save(f.__dict__)
 
     def add_tree(self, parent_name, parent_id):
         '''recursively descend the directory tree rooted at top,

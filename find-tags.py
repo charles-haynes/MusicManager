@@ -1,17 +1,20 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import os.path
 import pymongo 
 from bson.code import Code
 
 if __name__ == '__main__': 
-  db = pymongo.Connection().test
-
   m = Code("""function() {
-    if (this.digest)
-        emit(this.digest,1);
+    if (this.tags)
+        for (i=0;i<this.tags.length; i+=1)
+            emit(this.tags[i][0],1);
     }""")
 
   r = Code("function(k, v) { return Array.sum(v) }")
 
-  db.files.map_reduce(m, r, "mp3_dups", sort={"digest": 1})
+  db = pymongo.Connection().test
+  files = db.files
+
+  files.map_reduce(m, r, "mp3_tags")

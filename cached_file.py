@@ -21,8 +21,3 @@ class CachedFile():
 
     def isDirectory(self):
         return S_ISDIR(self.mode)
-
-    def dict(self):
-        dict = self.__dict__
-        return dict
-
