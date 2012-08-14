@@ -3,62 +3,28 @@
 
 import pdb
 
-import io
+import file_with_metadata
 import mutagen
 import os
 import os.path
-import re
 import shutil
 
 class MergeConflict(Exception):
     pass
 
-def generate_name(metadata,file_type):
-    if file_type != mutagen.mp3.MP3:
-        return None
-    
-    if 'TCMP' in metadata and metadata['TCMP']:
-        return generate_compilation_name(metadata)
+class WriteVerificationFailed(Exception):
+    pass
 
-    album = str(metadata['TALB'])
-    artist = str(metadata['TPE1'])
-    try:
-        track = int(re.match('\d+',str(metadata['TRCK'])).group())
-    except KeyError:
-        return generate_non_track_name(metadata,file_type)
-    title = str(metadata['TIT2'])
-    return os.path.join(artist, album, ("%02d - %s.mp3" % (track, title)))
-
-def generate_non_track_name(metadata,file_type):
-    if file_type != mutagen.mp3.MP3:
-        return None
-    
-    if 'TCMP' in metadata and metadata['TCMP']:
-        return generate_compilation_name(metadata)
-
-    album = str(metadata['TALB'])
-    artist = str(metadata['TPE1'])
-    title = str(metadata['TIT2'])
-    return os.path.join(artist, album, ("%s.mp3" % (title,)))
-
-def generate_compilation_name(metadata):
-    album = str(metadata['TALB'])
-    artist = str(metadata['TPE1'])
-    try:
-        track = int(re.match('\d+',str(metadata['TRCK'])).group())
-    except KeyError:
-        return generate_non_track_name(metadata,file_type)
-    title = str(metadata['TIT2'])
-    return os.path.join('Various Artists', album, ("%02d - %s - %s.mp3" % (track, artist, title)))
-
-def merge_file_metadata(file_names):
+def merge_file_metadata(dup_dict, base_dir=''):
     """merge_file_metadata
 
-    given a list of files with the same digest
-    create a new file with the same digest and merged metadata
+    given a dictionary of file_names and file metadata
+    of files that all have the same content
+    create a new file with that content and merged metadata
     or raise an exception if there is a merge conflict
     """
-    metadatas = [mutagen.File(file_name) for file_name in file_names]
+    metadatas = dup_dict.values()
+    old_file_name = dup_dict.keys()[0]
     try:
         merged_metadata_dict = merge(metadatas)
         if merged_metadata_dict is None:
@@ -66,12 +32,16 @@ def merge_file_metadata(file_names):
     except MergeConflict as exc:
         print exc
         return None
-    new_file_name=generate_name(merged_metadata_dict,type(metadatas[0]))
+    try:
+        old_file = file_with_metadata.FileWithMetadata(old_file_name)
+        new_file_name=os.path.join(base_dir, old_file.canonical_name)
+    except file_with_metadata.NoCanonicalName:
+        return
     try:
         os.makedirs(os.path.dirname(new_file_name))
     except OSError:
         pass
-    shutil.copy(file_names[0], new_file_name)
+    shutil.copy(old_file_name, new_file_name)
     print "copying to ",new_file_name,
     replace_metadata(new_file_name, merged_metadata_dict)
     print " done."
@@ -114,4 +84,6 @@ def replace_metadata(file_name, new_metadata_dict):
     old_metadata.save()
     old_metadata = mutagen.File(file_name)
     if sorted(old_metadata.items()) != sorted(new_metadata_dict.items()):
-        raise Exception(sorted(old_metadata.items()), sorted(new_metadata_dict.items()))
+        raise WriteVerificationFailed(
+            sorted(old_metadata.items()),
+            sorted(new_metadata_dict.items()))

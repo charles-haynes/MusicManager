@@ -1,14 +1,14 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import file_with_metadata
+from mock import call,Mock,MagicMock,patch
 import mutagen
 import mutagen.flac
 import mutagen.mp3
 import mutagen.mp4
 import mutagen.musepack
-import FileWithMetadata
 import unittest
-from mock import call,Mock,MagicMock,patch
 import warnings
 
 hash_empty = 'e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855'
@@ -20,46 +20,46 @@ id3v1v2 = id3v2_header+id3v1_trailer
 def mockOpen(read_values):
     return Mock(return_value=MagicMock(__enter__=Mock(return_value=Mock(read=Mock(side_effect=read_values)))))
 
-class TestPopulateDbMp3(unittest.TestCase):
+class TestFileWithMetadata(unittest.TestCase):
 
     def test_digest_not_mp3(self):
         read_values = ['','','']
         with patch('__builtin__.open', mockOpen(read_values)):
-            f = FileWithMetadata.FileWithMetadata('test_file',sum([len(x) for x in read_values]))
-            digest = f.digest()
+            f = file_with_metadata.FileWithMetadata('test_file',sum([len(x) for x in read_values]))
+            digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1(self):
         read_values=['',id3v1_trailer[:3],'']
         with patch('__builtin__.open', mockOpen(read_values)):
-            f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
-            digest = f.digest()
+            f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
+            digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v2(self):
         read_values=[id3v2_header, '','']
         with patch('__builtin__.open', mockOpen(read_values)):
-            f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
-            digest = f.digest()
+            f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
+            digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1v2(self):
         read_values=[id3v2_header, id3v1_trailer[:3], '']
         with patch('__builtin__.open', mockOpen(read_values)):
-            f = FileWithMetadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
-            digest = f.digest()
+            f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
+            digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     @patch('mutagen.File', Mock(return_value=None))
     def test_non_mp3_file_to_mp3_tags(self):
-        f = FileWithMetadata.FileWithMetadata('test_file',0)
-        mp3_tags = f.tags()
+        f = file_with_metadata.FileWithMetadata('test_file',0)
+        mp3_tags = f.tags
         self.assertEqual(mp3_tags,None)
 
     def test_mp3_file_to_mp3_tags(self):
         with patch('mutagen.File', Mock(return_value={'tag': 'value'})) as mock_mutagen:
-            f = FileWithMetadata.FileWithMetadata('test_file',0)
-            mp3_tags = f.tags()
+            f = file_with_metadata.FileWithMetadata('test_file',0)
+            mp3_tags = f.tags
             self.assertEqual(mp3_tags,{'tag': 'value'})
             self.assertTrue(mock_mutagen.called)
 
@@ -68,8 +68,8 @@ class TestPopulateDbMp3(unittest.TestCase):
     def test_malformed_mp3_file_to_mp3_tags(self):
         with warnings.catch_warnings(record=True) as w:
             warnings.simplefilter("always")
-            f = FileWithMetadata.FileWithMetadata('test_file',len(id3v1v2))
-            mp3_tags = f.tags()
+            f = file_with_metadata.FileWithMetadata('test_file',len(id3v1v2))
+            mp3_tags = f.tags
         self.assertIsNone(mp3_tags)
         self.assertEqual(len(w),1)
         self.assertTrue(issubclass(w[0].category, UserWarning))
@@ -78,22 +78,22 @@ class TestPopulateDbMp3(unittest.TestCase):
     @patch('mutagen.File', Mock(return_value=None))
     @patch('__builtin__.open', mockOpen(['', '', '1234']))
     def test_metadata_of_non_mp3_file(self):
-        f = FileWithMetadata.FileWithMetadata('test_file', len(''+''+'1234'))
-        info = f.metadata()
+        f = file_with_metadata.FileWithMetadata('test_file', len(''+''+'1234'))
+        info = f.metadata
         self.assertEqual(info,{'digest': hash_1234})
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
     @patch('__builtin__.open', mockOpen([id3v2_header, '', '1234']))
     def test_metadata_id3v2(self):
-        f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+''+'1234'))
-        info = f.metadata()
+        f = file_with_metadata.FileWithMetadata('test_file', len(id3v2_header+''+'1234'))
+        info = f.metadata
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
     @patch('__builtin__.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234']))
     def test_metadata_id3v1v2(self):
-        f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
-        info = f.metadata()
+        f = file_with_metadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
+        info = f.metadata
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
 
     def metadata_error(self, error):
@@ -101,8 +101,8 @@ class TestPopulateDbMp3(unittest.TestCase):
             with patch('mutagen.File', Mock(side_effect=error)):
                 with warnings.catch_warnings(record=True) as w:
                     warnings.simplefilter("always")
-                    f = FileWithMetadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
-                    info = f.metadata()
+                    f = file_with_metadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
+                    info = f.metadata
                 self.assertEqual(info, {'digest': hash_1234})
                 self.assertEqual(len(w),1)
                 self.assertTrue(issubclass(w[0].category, UserWarning))
@@ -119,6 +119,46 @@ class TestPopulateDbMp3(unittest.TestCase):
 
     def test_metadata_flac_error(self):
         self.metadata_error(mutagen.flac.FLACNoHeaderError('test'))
+
+class TestCanonicalNames(unittest.TestCase):
+
+    def setUp(self):
+        self.attrs = {'TALB': 'album',
+                      'TPE1': 'artist',
+                      'TIT2': 'title'}
+        self.mock_file = Mock(spec=mutagen.mp3.MP3,
+                         __getitem__ = Mock(side_effect = lambda x: self.attrs[x]),
+                         __contains__ = Mock(side_effect = lambda x: x in self.attrs))
+        self.mock_file.name='name.ext'
+
+        patcher = patch('mutagen.File', Mock(return_value=self.mock_file))
+        patcher.start()
+        self.addCleanup(patcher.stop)
+
+    def test_canonical_name(self):
+        f = file_with_metadata.FileWithMetadata('test_file.ext',0)
+        self.assertEqual(f.canonical_name,'artist/album/title.ext')
+
+    def test_canonical_compilation_name(self):
+        self.attrs['TCMP'] = 'true'
+        f = file_with_metadata.FileWithMetadata('test_file.ext',0)
+        self.assertEqual(f.canonical_name,'Various Artists/album/artist - title.ext')
+
+    def test_canonical_name_with_track(self):
+        self.attrs['TRCK'] = '09/10'
+        f = file_with_metadata.FileWithMetadata('test_file.ext',0)
+        self.assertEqual(f.canonical_name,'artist/album/09 - title.ext')
+
+    def test_canonical_compilation_name_with_track(self):
+        self.attrs['TCMP'] = 'true'
+        self.attrs['TRCK'] = '9'
+        f = file_with_metadata.FileWithMetadata('test_file.ext',0)
+        self.assertEqual(f.canonical_name,'Various Artists/album/09 - artist - title.ext')
+
+    def test_canonical_name_with_bad_track(self):
+        self.attrs['TRCK'] = 'zzzz'
+        f = file_with_metadata.FileWithMetadata('test_file.ext',0)
+        self.assertEqual(f.canonical_name,'artist/album/title.ext')
 
 if __name__ == "__main__":
     unittest.main()

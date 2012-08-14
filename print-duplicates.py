@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import cPickle as pickle
 import merge_metadata
 import os
 import os.path
@@ -19,7 +20,13 @@ if __name__ == '__main__':
   for digest in digests:
     dups = db.files.find({'digest': digest['_id']})
     print "*** %s: %d" % (digest['_id'], digest['value'])
-    paths = [full_path(db.files, dup).encode('utf-8') for dup in dups]
-    print '\n'.join(paths)
-    merge_metadata.merge_file_metadata(paths)
+    dup_dict = {}
+    for dup in dups:
+        try:
+            dup_dict[full_path(db.files, dup).encode('utf-8')] = pickle.loads(dup['tags'])
+        except KeyError:
+            continue
+    print '\n'.join(dup_dict.keys())
+    if dup_dict:
+        merge_metadata.merge_file_metadata(dup_dict, 'new_files')
     print

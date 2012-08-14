@@ -1,6 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
+import pdb
+
 from hashlib import sha256
 import mutagen
 import mutagen.flac
@@ -9,12 +11,17 @@ import mutagen.mp4
 import mutagen.musepack
 from mutagen.id3 import BitPaddedInt
 import os.path
+import re
+import string
 import struct
 from warnings import warn
 
 TEXT_ENCODING = 'utf8'
 
-class FileWithMetadata():
+class NoCanonicalName(Exception):
+    pass
+
+class FileWithMetadata(object):
 
     def __init__(self, name, size=None):
         self.name = name
@@ -22,8 +29,37 @@ class FileWithMetadata():
         self._digest = None
         self._tags = None
 
+    @property
+    def canonical_name(self):
+        if not isinstance(self.tags, mutagen.mp3.MP3):
+            raise NoCanonicalName(self.name)
+
+        fields = {'album': self.tags['TALB'],
+                  'artist': self.tags['TPE1'],
+                  'title': self.tags['TIT2'],
+                  'ext': os.path.splitext(self.name)[1]}
+
+        grandparent_dir_format = "{artist!s}"
+        dir_format = "{album!s}"
+        file_format = "{title!s}{ext!s}"
+
+        if 'TCMP' in self.tags and self.tags['TCMP']:
+            grandparent_dir_format = "Various Artists"
+            file_format = "{artist!s} - " + file_format
+        try:
+            fields['track'] = int(re.match('\d+',str(self.tags['TRCK'])).group())
+            file_format = "{track:02d} - " + file_format
+        except (KeyError, AttributeError):
+            pass
+
+        return os.path.join(grandparent_dir_format.format(**fields),
+                            dir_format.format(**fields),
+                            file_format.format(**fields))
+
+    @property
     def digest(self):
-        if self._digest: return self._digest
+        if self._digest:
+            return self._digest
 
         with open(self.name, 'rb') as f:
             start=0
@@ -54,14 +90,17 @@ class FileWithMetadata():
             self._digest = sha256(buf).hexdigest()
             return self._digest
 
+    @property
     def metadata(self):
-        ret_val = {'digest': self.digest()}
-        if self.tags() is not None:
-            ret_val['tags'] = self.tags()
+        ret_val = {'digest': self.digest}
+        if self.tags is not None:
+            ret_val['tags'] = self.tags
         return ret_val
 
+    @property
     def tags(self):
-        if self._tags: return self._tags
+        if self._tags is not None:
+            return self._tags
         try:
             self._tags = mutagen.File(self.name)
             return self._tags
