@@ -6,8 +6,8 @@ import unittest
 class TestCachedFile(unittest.TestCase):
     def setUp(self):
         self.file_info = {
-            'name': 'test_file',
-            'parent': 1,
+            'cache': None,
+            'id': None,
             'mode': S_IFREG,
             'inode': 2,
             'size': 3,
@@ -35,21 +35,20 @@ class TestCachedFile(unittest.TestCase):
         self.assertFalse(self.cached_file.hasChanged(self.file_info))
 
     def test_isRegularFile_true_for_regular_file(self):
-        self.assertTrue(self.cached_file.isRegularFile())
+        self.assertTrue(self.cached_file.isRegularFile)
 
     def test_isRegularFile_false_for_dir(self):
         self.file_info['mode'] = S_IFDIR
-        self.cached_file = cached_file.CachedFile(**self.file_info)
-        self.assertFalse(self.cached_file.isRegularFile())
+        cf = cached_file.CachedFile(**self.file_info)
+        self.assertFalse(cf.isRegularFile)
 
     def test_isDirectory_false_for_regular_file(self):
-        self.assertFalse(self.cached_file.isDirectory())
+        self.assertFalse(self.cached_file.isDirectory)
 
     def test_isDirectory_true_for_dir(self):
         self.file_info['mode'] = S_IFDIR
-        self.cached_file = cached_file.CachedFile(**self.file_info)
-        self.assertTrue(self.cached_file.isDirectory())
+        cf = cached_file.CachedFile(**self.file_info)
+        self.assertTrue(cf.isDirectory)
 
     def test_dict(self):
         self.assertEqual(self.file_info, self.cached_file.__dict__)
-

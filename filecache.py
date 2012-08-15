@@ -11,12 +11,13 @@ import cPickle as pickle
 import pymongo
 import pymongo.binary
 from stat import S_ISDIR
+import string
 import sys
 from warnings import warn
 
 TEXT_ENCODING = 'utf8'
 
-class FileCache():
+class FileCache(object):
 
     def __init__(self, file_db, log_every_count_files = 1000):
         self.file_db = file_db
@@ -29,8 +30,7 @@ class FileCache():
 
         cached_info = self.file_db.find_one({'name': name,'parent': parent})
         
-        cf = cached_file.CachedFile(name, parent, stat.st_mode, stat.st_ino, size,
-                                      datetime.fromtimestamp(stat.st_mtime))
+        cf = cached_file.CachedFile.FromStat(self, None, stat)
 
         # hasChanged should be internal to file
         # file should provide a method that returns file_info
@@ -40,7 +40,7 @@ class FileCache():
         if cached_info and not cf.hasChanged(cached_info):
             return cached_info['_id']
 
-        if cf.isRegularFile():
+        if cf.isRegularFile:
             mf = FileWithMetadata.FileWithMetadata(pathname, size)
             metadata = mf.metadata()
             # the rest of this logic should be cachedFile updating
@@ -55,8 +55,7 @@ class FileCache():
             except KeyError:
                 pass
 
-        print "saved %s" % (pathname,)
-        return self.file_db.save(cf.__dict__)
+        return self.add(cf, pathname)
 
     def add_tree(self, parent_name, parent_id):
         '''recursively descend the directory tree rooted at top,
@@ -75,3 +74,29 @@ class FileCache():
 
             try: self.add_tree(pathname, _id)
             except OSError: pass
+
+    def add(self, cached_file, pathname):
+        cached_file.id = self.file_db.save(cached_file.__dict__)
+        print "saved {}".format(pathname)
+        return cached_file.id
+
+    def delete(self, cached_file):
+        self.file_db.delete(cached_file.id)
+
+    def copy(self, cached_file, location):
+        # make a copy of the existing record, with a new location
+        return self.file_db.save()
+
+    def rename(self, cached_file, location):
+        # change name and parent to match location
+        parent, name = os.path.split(location)
+        id = self.copy(cached_file, location)
+        self.delete(cached_file)
+        return id
+
+    def full_path(self, id):
+        if id is None:
+            return os.sep
+        row=self.file_db.find_one({'_id':id},{'name':1,'parent':1})
+        return os.path.join(self.full_path(row['parent']), row['name'])
+

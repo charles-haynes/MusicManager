@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*-
 
 import file_with_metadata
+import io
 from mock import call,Mock,MagicMock,patch
 import mutagen
 import mutagen.flac
@@ -21,31 +22,31 @@ def mockOpen(read_values):
     return Mock(return_value=MagicMock(__enter__=Mock(return_value=Mock(read=Mock(side_effect=read_values)))))
 
 class TestFileWithMetadata(unittest.TestCase):
-
+        
     def test_digest_not_mp3(self):
         read_values = ['','','']
-        with patch('__builtin__.open', mockOpen(read_values)):
+        with patch('io.open', mockOpen(read_values)):
             f = file_with_metadata.FileWithMetadata('test_file',sum([len(x) for x in read_values]))
             digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1(self):
         read_values=['',id3v1_trailer[:3],'']
-        with patch('__builtin__.open', mockOpen(read_values)):
+        with patch('io.open', mockOpen(read_values)):
             f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v2(self):
         read_values=[id3v2_header, '','']
-        with patch('__builtin__.open', mockOpen(read_values)):
+        with patch('io.open', mockOpen(read_values)):
             f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest
         self.assertEqual(digest,hash_empty)
 
     def test_digest_id3v1v2(self):
         read_values=[id3v2_header, id3v1_trailer[:3], '']
-        with patch('__builtin__.open', mockOpen(read_values)):
+        with patch('io.open', mockOpen(read_values)):
             f = file_with_metadata.FileWithMetadata('test_file', sum([len(x) for x in read_values]))
             digest = f.digest
         self.assertEqual(digest,hash_empty)
@@ -63,41 +64,35 @@ class TestFileWithMetadata(unittest.TestCase):
             self.assertEqual(mp3_tags,{'tag': 'value'})
             self.assertTrue(mock_mutagen.called)
 
-    @patch('os.stat', Mock(return_value = Mock(st_size = len(id3v1v2))))
-    @patch('__builtin__.open',MagicMock(return_value=MagicMock(read=Mock(return_value=id3v1v2))))
+    @patch('mutagen.File', Mock(side_effect=mutagen.mp3.HeaderNotFoundError('test error')))
     def test_malformed_mp3_file_to_mp3_tags(self):
-        with warnings.catch_warnings(record=True) as w:
-            warnings.simplefilter("always")
-            f = file_with_metadata.FileWithMetadata('test_file',len(id3v1v2))
-            mp3_tags = f.tags
+        f = file_with_metadata.FileWithMetadata('test_file',len(id3v1v2))
+        mp3_tags = f.tags
         self.assertIsNone(mp3_tags)
-        self.assertEqual(len(w),1)
-        self.assertTrue(issubclass(w[0].category, UserWarning))
-        self.assertEqual(str(w[0].message), "test_file can't sync to an MPEG frame")
 
     @patch('mutagen.File', Mock(return_value=None))
-    @patch('__builtin__.open', mockOpen(['', '', '1234']))
+    @patch('io.open', mockOpen(['', '', '1234']))
     def test_metadata_of_non_mp3_file(self):
         f = file_with_metadata.FileWithMetadata('test_file', len(''+''+'1234'))
         info = f.metadata
         self.assertEqual(info,{'digest': hash_1234})
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
-    @patch('__builtin__.open', mockOpen([id3v2_header, '', '1234']))
+    @patch('io.open', mockOpen([id3v2_header, '', '1234']))
     def test_metadata_id3v2(self):
         f = file_with_metadata.FileWithMetadata('test_file', len(id3v2_header+''+'1234'))
         info = f.metadata
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
 
     @patch('mutagen.File', Mock(return_value={'tag': 'value'}))
-    @patch('__builtin__.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234']))
+    @patch('io.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234']))
     def test_metadata_id3v1v2(self):
         f = file_with_metadata.FileWithMetadata('test_file', len(id3v2_header+id3v1_trailer[:3]+'1234'))
         info = f.metadata
         self.assertEqual(info,{'digest': hash_1234, 'tags': {'tag': 'value'}})
 
     def metadata_error(self, error):
-        with patch('__builtin__.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234'])):
+        with patch('io.open', mockOpen([id3v2_header, id3v1_trailer[:3], '1234'])):
             with patch('mutagen.File', Mock(side_effect=error)):
                 with warnings.catch_warnings(record=True) as w:
                     warnings.simplefilter("always")

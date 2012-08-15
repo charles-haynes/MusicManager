@@ -4,6 +4,7 @@
 import pdb
 
 from hashlib import sha256
+import io
 import mutagen
 import mutagen.flac
 import mutagen.mp3
@@ -22,6 +23,11 @@ class NoCanonicalName(Exception):
     pass
 
 class FileWithMetadata(object):
+    """FileWithMetadata
+    
+    Has a digest and a tags property. Digest is the sha256 of the
+    "interesting" data in the file. Tags are the mutagen metadata tags
+    """
 
     def __init__(self, name, size=None):
         self.name = name
@@ -61,7 +67,7 @@ class FileWithMetadata(object):
         if self._digest:
             return self._digest
 
-        with open(self.name, 'rb') as f:
+        with io.open(self.name, 'rb') as f:
             start=0
             end=self.size
 

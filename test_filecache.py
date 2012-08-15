@@ -6,7 +6,7 @@ import filecache
 from stat import *
 import unittest
 
-from mock import call,Mock,patch
+from mock import call,MagicMock,Mock,patch
 
 
 class TestFileCache(unittest.TestCase):
@@ -27,7 +27,7 @@ class TestFileCache(unittest.TestCase):
         self.mock_metadata = patcher1.start()
         self.addCleanup(patcher1.stop)
 
-        patcher2 = patch('os.lstat', Mock(return_value=Mock(st_mode=S_IFREG, st_mtime=2.0, st_size=4, st_ino=5)))
+        patcher2 = patch('os.lstat', Mock(return_value=MagicMock(st_mode=S_IFREG, st_mtime=2.0, st_size=4, st_ino=5)))
         self.mock_lstat = patcher2.start()
         self.addCleanup(patcher2.stop)
 
