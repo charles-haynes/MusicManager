@@ -1,12 +1,9 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import pdb
-
-import file_with_metadata
+import metadata
 import mutagen
 import os
-import os.path
 import shutil
 
 class MergeConflict(Exception):
@@ -33,7 +30,7 @@ def merge_file_metadata(dup_dict, base_dir=''):
         print exc
         return None
     try:
-        old_file = file_with_metadata.FileWithMetadata(old_file_name)
+        old_file = metadata.Metadata(old_file_name)
         new_file_name=os.path.join(base_dir, old_file.canonical_name)
     except file_with_metadata.NoCanonicalName:
         return

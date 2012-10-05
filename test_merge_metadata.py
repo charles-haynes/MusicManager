@@ -1,13 +1,8 @@
 #!/usr/bin/env python
 # -*- coding: utf-8 -*-
 
-import file_with_metadata
 import merge_metadata
 from mock import call, MagicMock, Mock, patch
-import mutagen
-import os
-import os.path
-import shutil
 import unittest
 
 @patch('os.path.join', Mock(side_effect = lambda x, y: x+'/'+y))
@@ -22,7 +17,7 @@ class TestMergeMetadata_merge_file_metadata(unittest.TestCase):
         self.dict_conflict = {'a': 'b', 'c': 'e'}
         self.dict_merged = {'a': 'b', 'c': 'd', 'e': 'f'}
 
-        patcher=patch('file_with_metadata.FileWithMetadata')
+        patcher=patch('metadata.Metadata')
         self.mock_file_with_metadata = patcher.start()
         self.mock_file_with_metadata.return_value.canonical_name.__radd__.return_value = 'artist/album/title.ext'
         self.addCleanup(patcher.stop)

@@ -3,11 +3,11 @@
 
 from datetime import datetime
 import filecache
+import metadata
 from stat import *
 import unittest
 
 from mock import call,MagicMock,Mock,patch
-
 
 class TestFileCache(unittest.TestCase):
 
@@ -23,7 +23,7 @@ class TestFileCache(unittest.TestCase):
 
         self.file_cache = filecache.FileCache(self.mongo_db)
 
-        patcher1 = patch('FileWithMetadata.FileWithMetadata.metadata', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
+        patcher1 = patch('metadata.Metadata.metadata', Mock(return_value = {'digest': 0, 'tags': {'tag': 'value'}}))
         self.mock_metadata = patcher1.start()
         self.addCleanup(patcher1.stop)
 
@@ -43,6 +43,22 @@ class TestFileCache(unittest.TestCase):
                     call('./b/c', 'c', 0)]
 
         self.assertEqual(self.file_cache.id.call_args_list,expected)
+
+    def test_add(self):
+        self.mongo_db.save.return_value = 1
+        id = self.file_cache.add(Mock(), 'test/path')
+        self.assertTrue(self.mongo_db.save.called)
+        self.assertEqual(id, 1)
+
+    def test_delete(self):
+        self.file_cache.delete(Mock())
+        self.assertTrue(self.mongo_db.delete.called)
+
+    def test_copy(self):
+        self.mongo_db.save.return_value = 1
+        id = self.file_cache.add(Mock(), 'test/path')
+        self.assertTrue(self.mongo_db.save.called)
+        self.assertEqual(id, 1)
 
     def test_id_calls_metadata_for_uncached_regular_file(self):
         self.mongo_db.find_one.return_value = None

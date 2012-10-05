@@ -3,7 +3,7 @@
 
 import pdb
 
-from hashlib import sha256
+import hashlib
 import io
 import mutagen
 import mutagen.flac
@@ -22,18 +22,29 @@ TEXT_ENCODING = 'utf8'
 class NoCanonicalName(Exception):
     pass
 
-class FileWithMetadata(object):
-    """FileWithMetadata
+class Metadata(object):
+    """Encapsulate size, digest, and tag metadata for a file.
     
-    Has a digest and a tags property. Digest is the sha256 of the
+    Size is the length of the file. Digest is the sha256 of the
     "interesting" data in the file. Tags are the mutagen metadata tags
     """
 
     def __init__(self, name, size=None):
         self.name = name
         self.size = size if size is not None else os.path.getsize(name)
-        self._digest = None
-        self._tags = None
+        self._digest = self._digest_from_file()
+        self._tags = self._tags_from_file()
+
+    @classmethod
+    def FromFile(name):
+        """Create metadata from a named file.
+
+        returns a metadata object including digest, and music tags if any
+        """
+        retval = Metadata(name)
+        retval.digest
+        retval.tags
+        return retval
 
     @property
     def canonical_name(self):
@@ -64,9 +75,12 @@ class FileWithMetadata(object):
 
     @property
     def digest(self):
-        if self._digest:
-            return self._digest
+        if self._digest is None:
+            self._digest = self._digest_from_file()
+        
+        return self._digest
 
+    def _digest_from_file(self):
         with io.open(self.name, 'rb') as f:
             start=0
             end=self.size
@@ -93,8 +107,7 @@ class FileWithMetadata(object):
 
             f.seek(start)
             buf=f.read(end-start)
-            self._digest = sha256(buf).hexdigest()
-            return self._digest
+            return hashlib.sha256(buf).hexdigest()
 
     @property
     def metadata(self):
@@ -105,16 +118,19 @@ class FileWithMetadata(object):
 
     @property
     def tags(self):
-        if self._tags is not None:
-            return self._tags
+        if self._tags is None:
+            self._tags = self._tags_from_file()
+            
+        return self._tags
+
+    def _tags_from_file(self):
         try:
-            self._tags = mutagen.File(self.name)
-            return self._tags
+            return mutagen.File(self.name)
         except (
             mutagen.mp4.error,
             mutagen.mp3.error,
             mutagen.musepack.error,
             mutagen.flac.error
             ) as exc:
-            warn("%s %s"%(self.name, exc))
+            warn("{} {}".format(self.name, exc))
         return None

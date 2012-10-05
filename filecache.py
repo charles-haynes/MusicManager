@@ -3,7 +3,7 @@
 
 import cached_file
 from datetime import datetime
-import FileWithMetadata
+import metadata
 import logging
 import os
 import os.path
@@ -19,10 +19,10 @@ TEXT_ENCODING = 'utf8'
 
 class FileCache(object):
 
-    def __init__(self, file_db, log_every_count_files = 1000):
+    def __init__(self, file_db, log_every_count_files_added = 1000):
         self.file_db = file_db
-        self.count = 0
-        self.log_every_count_files = log_every_count_files
+        self.added_count = 0
+        self.log_every_count_files_added = log_every_count_files_added
 
     def id(self, pathname, name, parent):
         stat = os.lstat(pathname)
@@ -41,21 +41,31 @@ class FileCache(object):
             return cached_info['_id']
 
         if cf.isRegularFile:
-            mf = FileWithMetadata.FileWithMetadata(pathname, size)
-            metadata = mf.metadata()
+            mf = metadata.Metadata(pathname, size)
+            my_metadata = mf.metadata()
             # the rest of this logic should be cachedFile updating
             # the cache
             try:
-                cf.digest = metadata['digest']
+                cf.digest = my_metadata['digest']
             except KeyError:
                 pass
             try:
                 cf.tags=pymongo.binary.Binary(
-                    pickle.dumps(metadata['tags'], pickle.HIGHEST_PROTOCOL))
+                    pickle.dumps(my_metadata['tags'], pickle.HIGHEST_PROTOCOL))
             except KeyError:
                 pass
 
         return self.add(cf, pathname)
+
+    def id_for_path(self, pathname):
+        pathname = os.path.abspath(pathname)
+        path_elements = pathname.split(os.sep)
+        path=os.sep
+        parent = self.id(path, '', None)
+        for element in path_elements[1:]:
+            path = os.path.join(path, element)
+            parent = self.id(path, element, parent)
+        return parent
 
     def add_tree(self, parent_name, parent_id):
         '''recursively descend the directory tree rooted at top,
@@ -66,16 +76,19 @@ class FileCache(object):
             try:
                 _id = self.id(pathname, child_name, parent_id)
             except OSError as exc:
-                warn('"%s": %s' % (pathname, exc))
+                warn('"{}": {}'.format(pathname, exc))
                 continue
-            self.count += 1
-            if (self.log_every_count_files > 0) and (self.count % self.log_every_count_files) == 0:
-                logging.info(pathname)
 
-            try: self.add_tree(pathname, _id)
-            except OSError: pass
+            try:
+                self.add_tree(pathname, _id)
+            except OSError:
+                pass
 
     def add(self, cached_file, pathname):
+        self.added_count += 1
+        if ((self.log_every_count_files_added > 0)
+            and (self.added_count % self.log_every_count_files_added) == 0):
+            logging.info(pathname)
         cached_file.id = self.file_db.save(cached_file.__dict__)
         print "saved {}".format(pathname)
         return cached_file.id
@@ -85,7 +98,10 @@ class FileCache(object):
 
     def copy(self, cached_file, location):
         # make a copy of the existing record, with a new location
-        return self.file_db.save()
+        # compute the parent and name of the new location
+        # see if it already exists
+        # save it
+        return self.file_db.save(cached_file.__dict__)
 
     def rename(self, cached_file, location):
         # change name and parent to match location

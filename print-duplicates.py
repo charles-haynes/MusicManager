@@ -4,8 +4,7 @@
 import cPickle as pickle
 import merge_metadata
 import os
-import os.path
-import pymongo 
+import pymongo
 
 def full_path(coll, id):
     if id is None:
@@ -19,7 +18,7 @@ if __name__ == '__main__':
     digests = db.mp3_dups.find({'value': {'$gt': 1}},sort=[('value',-1)])
     for digest in digests:
         dups = db.files.find({'digest': digest['_id']})
-        print "*** %s: %d" % (digest['_id'], digest['value'])
+        print "*** {}: {:.0f}".format(digest['_id'], digest['value'])
         dup_dict = {}
         for dup in dups:
             try:
